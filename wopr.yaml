@@ -14,11 +14,24 @@ api:
   services:
     - service: update_text
       variables:
-        WOPR_DISPLAY: string
+       wopr_display: string
       then:
         - text_sensor.template.publish:
             id: wopr_display
-            state: !lambda 'return WOPR_DISPLAY;'
+            state: !lambda 'return wopr_display;'
+        - script.execute: restore_clock
+    - service: update_text_with_timeout
+      variables:
+        wopr_display: string
+        timeout: int
+      then:
+        - text_sensor.template.publish:
+            id: wopr_display
+            state: !lambda 'return wopr_display;'
+        - number.set:
+            id: text_timeout
+            value: !lambda 'return timeout;'
+        - script.execute: restore_clock
 
 ota:
 
@@ -133,6 +146,28 @@ text_sensor:
       }else{
         return {id(wopr_display).state};
       }
+
+number:
+  - platform: template
+    id: text_timeout
+    name: WOPR Message Timeout
+    max_value: 600
+    min_value: 10
+    step: 1
+    restore_value: true
+    initial_value: 10
+    unit_of_measurement: s
+    optimistic: true
+    entity_category: config
+
+script:
+  - id: restore_clock
+    mode: restart
+    then:
+      - delay: !lambda 'return id(text_timeout).state * 1000;'
+      - text_sensor.template.publish:
+          id: wopr_display
+          state: '!TIME'
 
 display:
   - platform: ht16k33_alpha
